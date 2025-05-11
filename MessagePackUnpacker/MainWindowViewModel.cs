@@ -3,27 +3,45 @@ using MessagePackUnpacker.Base;
 using Newtonsoft.Json;
 using System;
 
-
 namespace MessagePackUnpacker
 {
     internal class MainWindowViewModel : ViewModelBase
     {
         private string _inputText;
         private string _outputText;
-
+        private string _structureText;
+        public string StructureText
+        {
+            get => _structureText;
+            set
+            {
+                _structureText = value;
+                OnPropertyChanged();
+            }
+        }
         public string InputText
         {
             get => _inputText;
             set
             {
-                if (_inputText.StartsWith("0x"))
+                if (value == null)
                 {
-                    // 0xプレフィックスを削除
-                    _inputText = _inputText.Substring(2);
+                    _inputText = null;
+                    OnPropertyChanged();
+                    return;
                 }
-                _inputText = value;
-                OnPropertyChanged();
+
+                string processedValue = value;
+
+                if (processedValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    // "0x" を削除
+                    processedValue = processedValue.Substring(2);
+                }
+
+                _inputText = processedValue;
                 Deserialize();
+                OnPropertyChanged();
             }
         }
         public string OutputText
@@ -44,37 +62,21 @@ namespace MessagePackUnpacker
                     OutputText = string.Empty;
                     return;
                 }
-
-                byte[] bytes = HexStringToBytes(InputText);
-
+                byte[] bytes = Util.HexStringToBytes(InputText);
                 // MessagePackでデシリアライズ（dynamic型として）
                 var deserializedObject = MessagePackSerializer.Deserialize<dynamic>(bytes);
 
                 // 整形されたJSONを生成（pretty print）
                 string prettyJson = JsonConvert.SerializeObject(deserializedObject, Formatting.Indented);
-
                 // JSONをOutputTextBoxに表示
                 OutputText = prettyJson;
+                StructureText = Util.BuildStructure(bytes);
             }
             catch (Exception ex)
             {
                 OutputText = "デシリアライズエラー:\n" + ex.Message;
+                StructureText = string.Empty;
             }
-        }
-        private byte[] HexStringToBytes(string hex)
-        {
-            if (hex.Length % 2 != 0)
-                throw new FormatException("Hex文字列の長さが不正です（偶数桁である必要があります）");
-
-            int len = hex.Length / 2;
-            byte[] bytes = new byte[len];
-
-            for (int i = 0; i < len; i++)
-            {
-                bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
-            }
-
-            return bytes;
         }
     }
 }
